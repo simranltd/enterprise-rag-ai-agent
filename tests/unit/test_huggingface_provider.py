@@ -1,4 +1,6 @@
 import pytest
+import sys
+import types
 
 from northstar.llm import HuggingFaceLocalProvider
 
@@ -37,9 +39,61 @@ class FakeModel:
     def __init__(self):
         self.generate_calls = []
 
+    def to(self, device):
+        return self
+
+    def eval(self):
+        return self
+
     def generate(self, **kwargs):
         self.generate_calls.append(kwargs)
         return FakeTensor([[10, 11, 12, 13, 14]])
+
+
+class FakeTorch:
+    float32 = "float32"
+    float16 = "float16"
+
+    @staticmethod
+    def set_num_threads(count):
+        return None
+
+    class cuda:
+        @staticmethod
+        def is_available():
+            return False
+
+
+def test_cpu_model_loading_requests_float32(monkeypatch) -> None:
+    calls = []
+    tokenizer = FakeTokenizer()
+    model = FakeModel()
+
+    class FakeAutoTokenizer:
+        @staticmethod
+        def from_pretrained(model_name):
+            return tokenizer
+
+    class FakeAutoModel:
+        @staticmethod
+        def from_pretrained(model_name, **kwargs):
+            calls.append((model_name, kwargs))
+            return model
+
+    monkeypatch.setitem(sys.modules, "torch", FakeTorch)
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        types.SimpleNamespace(
+            AutoTokenizer=FakeAutoTokenizer,
+            AutoModelForCausalLM=FakeAutoModel,
+        ),
+    )
+
+    provider = HuggingFaceLocalProvider(device="cpu")
+    provider.loaded_model
+
+    assert calls == [("Qwen/Qwen3-1.7B", {"torch_dtype": "float32"})]
 
 
 def test_local_provider_uses_qwen_template_and_deterministic_generation() -> None:

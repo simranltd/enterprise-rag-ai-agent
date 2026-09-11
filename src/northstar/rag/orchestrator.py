@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from time import perf_counter
 from typing import Any, Iterable, Protocol
 
 from northstar.llm import LLMProvider
@@ -45,12 +46,28 @@ class RAGOrchestrator:
     def answer(self, question: str) -> RAGResult:
         if not question.strip():
             raise ValueError("question cannot be empty")
+        request_started = perf_counter()
+
+        embedding_started = perf_counter()
         query_embedding = self.embedding_provider.embed_text(question)
+        print(f"[RAG timing] query embedding: {perf_counter() - embedding_started:.3f}s")
+
+        retrieval_started = perf_counter()
         retrieval_results = list(
             self.retriever.search(query_embedding, top_k=self.top_k)
         )
+        print(f"[RAG timing] Chroma retrieval: {perf_counter() - retrieval_started:.3f}s")
+
+        context_started = perf_counter()
         context = self.context_builder.build(retrieval_results)
         if not context.sources:
+            print(
+                "[RAG timing] context/prompt construction: "
+                f"{perf_counter() - context_started:.3f}s"
+            )
+            print(
+                f"[RAG timing] total request: {perf_counter() - request_started:.3f}s"
+            )
             return RAGResult(
                 question=question,
                 answer_text=INSUFFICIENT_EVIDENCE_RESPONSE,
@@ -58,9 +75,17 @@ class RAGOrchestrator:
                 provider="none",
                 model="none",
             )
-
         prompt = self.prompt_builder.build(question, context)
+        prompt = self.prompt_builder.build(question, context)
+        print(
+            "[RAG timing] context/prompt construction: "
+            f"{perf_counter() - context_started:.3f}s"
+        )
+
+        generation_started = perf_counter()
         response = self.llm_provider.generate(prompt)
+        print(f"[RAG timing] LLM generation: {perf_counter() - generation_started:.3f}s")
+        print(f"[RAG timing] total request: {perf_counter() - request_started:.3f}s")
         return RAGResult(
             question=question,
             answer_text=response.text,

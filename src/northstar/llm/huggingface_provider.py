@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from .base import LLMResponse
 
 DEFAULT_MODEL_NAME = "Qwen/Qwen3-1.7B"
-DEFAULT_MAX_NEW_TOKENS = 256
+DEFAULT_MAX_NEW_TOKENS = 128
 
 
 class HuggingFaceLocalProvider:
@@ -31,6 +32,7 @@ class HuggingFaceLocalProvider:
         self.model = model_name
         self.max_new_tokens = max_new_tokens
         self._device_name = device
+        self._resolved_device: str | None = None
         self._tokenizer = tokenizer
         self._model = model
 
@@ -58,11 +60,14 @@ class HuggingFaceLocalProvider:
             return_tensors="pt",
         )
         inputs = self._move_inputs_to_device(inputs)
-        generated = model.generate(
-            **inputs,
-            max_new_tokens=self.max_new_tokens,
-            do_sample=False,
-        )
+        import torch
+
+        with torch.inference_mode():
+            generated = model.generate(
+                **inputs,
+                max_new_tokens=self.max_new_tokens,
+                do_sample=False,
+            )
         input_ids = inputs["input_ids"]
         generated_ids = generated[:, input_ids.shape[-1] :]
         text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
@@ -80,15 +85,23 @@ class HuggingFaceLocalProvider:
                 "torch and transformers are required for HuggingFaceLocalProvider"
             ) from error
 
+        torch.set_num_threads(max(1, os.cpu_count() or 1))
         device = self._device_name or ("cuda" if torch.cuda.is_available() else "cpu")
+        self._resolved_device = device
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self._model = AutoModelForCausalLM.from_pretrained(self.model_name)
+        model_kwargs = {
+            "torch_dtype": torch.float32 if device == "cpu" else torch.float16
+        }
+        self._model = AutoModelForCausalLM.from_pretrained(
+            self.model_name,
+            **model_kwargs,
+        )
         self._model.to(device)
         self._model.eval()
         return self._tokenizer, self._model
 
     def _move_inputs_to_device(self, inputs: Any) -> Any:
-        device = self._device_name
+        device = self._resolved_device
         if device is None:
             try:
                 import torch
