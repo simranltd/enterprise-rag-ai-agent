@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional
 
 
 @dataclass(frozen=True)
@@ -26,3 +26,14 @@ class ContextSource:
     chunk_index: Optional[int] = None
     chunk_text: str = ""
     similarity_score: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class RAGResult:
+    """Structured output from the deterministic RAG orchestration layer."""
+
+    question: str
+    answer_text: str
+    sources: List[ContextSource]
+    provider: str
+    model: str
