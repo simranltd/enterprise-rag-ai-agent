@@ -51,6 +51,7 @@ docker-compose.override.yml
 .docker/
 tmp/
 logs/
+data/chroma/
 
 # OS files
 .DS_Store
