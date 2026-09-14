@@ -7,8 +7,8 @@ from typing import Any
 
 from .base import LLMResponse
 
-DEFAULT_MODEL_NAME = "Qwen/Qwen3-1.7B"
-DEFAULT_MAX_NEW_TOKENS = 128
+DEFAULT_MODEL_NAME = "Qwen/Qwen3-0.6B"
+DEFAULT_MAX_NEW_TOKENS = 96
 
 
 class HuggingFaceLocalProvider:

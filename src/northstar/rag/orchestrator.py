@@ -22,6 +22,20 @@ class RetrieverLike(Protocol):
         ...
 
 
+def filter_current_policy_results(results: Iterable[Any]) -> list[Any]:
+    """Exclude explicitly superseded sections from current-policy evidence."""
+    filtered = []
+    for result in results:
+        section_title = getattr(result, "section_title", None)
+        if section_title is None and isinstance(result, dict):
+            section_title = result.get("section_title")
+            if section_title is None:
+                section_title = result.get("metadata", {}).get("section_title")
+        if "superseded" not in str(section_title or "").lower():
+            filtered.append(result)
+    return filtered
+
+
 class RAGOrchestrator:
     """Coordinates retrieval and future LLM generation through injection."""
 
@@ -53,7 +67,7 @@ class RAGOrchestrator:
         print(f"[RAG timing] query embedding: {perf_counter() - embedding_started:.3f}s")
 
         retrieval_started = perf_counter()
-        retrieval_results = list(
+        retrieval_results = filter_current_policy_results(
             self.retriever.search(query_embedding, top_k=self.top_k)
         )
         print(f"[RAG timing] Chroma retrieval: {perf_counter() - retrieval_started:.3f}s")
@@ -75,7 +89,6 @@ class RAGOrchestrator:
                 provider="none",
                 model="none",
             )
-        prompt = self.prompt_builder.build(question, context)
         prompt = self.prompt_builder.build(question, context)
         print(
             "[RAG timing] context/prompt construction: "

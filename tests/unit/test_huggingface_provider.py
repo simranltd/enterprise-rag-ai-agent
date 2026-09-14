@@ -93,7 +93,7 @@ def test_cpu_model_loading_requests_float32(monkeypatch) -> None:
     provider = HuggingFaceLocalProvider(device="cpu")
     provider.loaded_model
 
-    assert calls == [("Qwen/Qwen3-1.7B", {"torch_dtype": "float32"})]
+    assert calls == [("Qwen/Qwen3-0.6B", {"torch_dtype": "float32"})]
 
 
 def test_local_provider_uses_qwen_template_and_deterministic_generation() -> None:
@@ -116,7 +116,7 @@ def test_local_provider_uses_qwen_template_and_deterministic_generation() -> Non
     assert model.generate_calls[0]["do_sample"] is False
     assert response.text == "Grounded local answer [S1]."
     assert response.provider == "huggingface-local"
-    assert response.model == "Qwen/Qwen3-1.7B"
+    assert response.model == "Qwen/Qwen3-0.6B"
 
 
 def test_model_and_tokenizer_are_reused() -> None:
@@ -128,6 +128,13 @@ def test_model_and_tokenizer_are_reused() -> None:
     assert provider.loaded_model is model
     assert provider.tokenizer is tokenizer
     assert provider.loaded_model is model
+
+
+def test_default_model_and_generation_limit_are_chatbot_friendly() -> None:
+    provider = HuggingFaceLocalProvider(tokenizer=FakeTokenizer(), model=FakeModel())
+
+    assert provider.model_name == "Qwen/Qwen3-0.6B"
+    assert provider.max_new_tokens == 96
 
 
 def test_provider_requires_both_injected_dependencies() -> None:
