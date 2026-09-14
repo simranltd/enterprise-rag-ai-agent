@@ -73,6 +73,24 @@ class ChromaVectorStore:
         )
         return len(chunks_list)
 
+    def sync_chunks(
+        self,
+        chunks: Iterable[Chunk],
+        embeddings: Iterable[List[float]],
+    ) -> int:
+        """Reconcile the collection with the current source chunk set."""
+        chunks_list = list(chunks)
+        embeddings_list = list(embeddings)
+        if len(chunks_list) != len(embeddings_list):
+            raise ValueError("chunks and embeddings must have the same length")
+
+        current_ids = {deterministic_chunk_id(chunk) for chunk in chunks_list}
+        existing_ids = set(self.collection.get()["ids"])
+        stale_ids = existing_ids - current_ids
+        if stale_ids:
+            self.collection.delete(ids=list(stale_ids))
+        return self.upsert_chunks(chunks_list, embeddings_list)
+
     def count(self) -> int:
         return self.collection.count()
 

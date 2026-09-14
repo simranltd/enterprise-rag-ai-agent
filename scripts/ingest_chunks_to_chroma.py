@@ -31,10 +31,10 @@ def main() -> None:
         chunk.metadata["embedding_model"] = model_name
         chunk.metadata["embedding_dimension"] = provider.dimension
     before = store.count()
-    upserted = store.upsert_chunks(chunks, embeddings)
+    upserted = store.sync_chunks(chunks, embeddings)
     print(f"Documents processed: {len(list((ROOT / 'data' / 'sample_documents').glob('*.md')))}")
     print(f"Chunks processed: {len(chunks)}")
-    print(f"Chunks newly inserted/upserted: {upserted}")
+    print(f"Chunks inserted/upserted: {upserted}")
     print(f"Collection count before: {before}")
     print(f"Collection count after: {store.count()}")
 

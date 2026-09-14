@@ -49,3 +49,15 @@ def test_metadata_handling(tmp_path: Path) -> None:
     metadata = store.collection.get(include=["metadatas"])["metadatas"][0]
     assert metadata["document_title"] == "Policy"
     assert metadata["section_title"] == "Approvals"
+
+
+def test_sync_rejects_mismatched_embeddings(tmp_path: Path) -> None:
+    store = ChromaVectorStore(tmp_path / "chroma")
+    chunk = Chunk("text", {"source_filename": "policy.md", "chunk_index": 0})
+
+    try:
+        store.sync_chunks([chunk], [])
+    except ValueError as error:
+        assert "same length" in str(error)
+    else:
+        raise AssertionError("sync_chunks should reject mismatched embeddings")
